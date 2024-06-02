@@ -7,7 +7,10 @@ import java.awt.event.*;
 // import java.awt.event.ActionListener;
 import java.util.Random;
 import java.util.LinkedList;
-
+import java.io.File;
+import javax.sound.sampled.*;
+import java.util.ArrayList;
+import java.util.Collections;
 
 
 public class CatHitMouse extends JFrame implements ActionListener {
@@ -118,8 +121,8 @@ class Mouse {
 
 class GamePanel extends JPanel implements ActionListener, KeyListener{
     // data member
-    private static final int DELAY = 500; // 0.3秒的延遲
-    private static final int DELAY2 = 150;
+    private static final int DELAY = 400; // 0.3秒的延遲
+    private static  int DELAY2 = 150;
 
     private Toolkit toolkit;
     private Image mouse_img, mouse_img2, cat_img;
@@ -128,16 +131,22 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
     private LinkedList<Mouse> mice, mice2;
     private Random random;
     private Image backgroundImage;
-    private JButton exitButton;
+    private JButton exitButton, restartButton;
     private int ori_width, ori_height;
     private int width, height;
     private int mice_chcekNum = 0, mice_chcekNum2 = 0;
     private JLabel timer_label, score_label;
     private int time, score;
+    private Clip clip;
+    private boolean is_accelerate;
+
+    private ArrayList<Integer> bestScores;
 
     public GamePanel() {
         setLayout(null);
         random = new Random();
+
+        is_accelerate = false;
         
         toolkit = Toolkit.getDefaultToolkit();
         // 載入背景圖
@@ -153,18 +162,35 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
         exitButton.addActionListener(this);
 
 
+        // restart button
+        restartButton = new JButton("Restart");
+        restartButton.setFont(new Font("Times New Roman", Font.PLAIN, 70));
+        restartButton.setBounds((getWidth()-300)/2, (getHeight() - 100)/2, 300, 100);
+        add(restartButton);
+        restartButton.addActionListener(this);
+        restartButton.setVisible(false);
 
-        time = 300;
+
+        // timer
+        time = 30;
         timer_label = new JLabel("剩下時間: "+time+"秒");
         timer_label.setFont(new Font("標楷體", Font.BOLD, 40));
-        timer_label.setBounds((getWidth()/2-400), 0, 400, 100);
+        timer_label.setBounds((getWidth()/2-400), 0, 320, 70);
+        timer_label.setOpaque(true);
+        timer_label.setBackground(Color.WHITE);
         add(timer_label);
 
+
+        // score
         score = 0;
         score_label = new JLabel("Score: "+score);
         score_label.setFont(new Font("標楷體", Font.BOLD, 40));
-        score_label.setBounds(50, 0, 400, 100);
+        score_label.setBounds(50, 0, 230, 70);
+        score_label.setOpaque(true);
+        score_label.setBackground(Color.WHITE);
         add(score_label);
+
+        bestScores = new ArrayList<Integer>();
 
         // 初始化老鼠
         mice = new LinkedList<Mouse>();
@@ -173,6 +199,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
         addComponentListener(new java.awt.event.ComponentAdapter() {
             public void componentResized(java.awt.event.ComponentEvent evt) {
                 exitButton.setLocation(getWidth() - 120, getHeight() - 60);
+                restartButton.setLocation((getWidth()-300)/2, (getHeight() - 100)/2);
 
                 timer_label.setLocation((getWidth()-400)/2, 0);
                 score_label.setLocation(50, 0);
@@ -184,12 +211,10 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
                 height = getHeight();
                 mouse_img = toolkit.getImage("attachment/image/mouse.gif").getScaledInstance(height/3+(150*height)/1080, height/3+(150*height)/1080, Image.SCALE_DEFAULT);
                 mouse_img2 = toolkit.getImage("attachment/image/mouse2.gif").getScaledInstance(height/3+(150*height)/1080, height/3+(150*height)/1080, Image.SCALE_DEFAULT);
+
                 y_position = new int[]{(50*height)/1080, (350*height)/1080, (650*height)/1080};
                 
                 cat_img = toolkit.getImage("attachment/image/cat_hand.png").getScaledInstance(height/4, height/4, Image.SCALE_DEFAULT);
-        
-                // timer_label.setBounds((getWidth()-400/2), 0, 400, 100);
-                // add(timer_label);
         
             }
         });
@@ -217,11 +242,33 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
             public void actionPerformed(ActionEvent e) {
                 --time;
                 timer_label.setText("剩下時間: "+time+"秒");
-                if(time == 0){
-                    timer1.stop();
-                    timer2.stop();
-                    timer3.stop();
+
+                repaint();
+
+                if(time<=10 &&  !is_accelerate){
+                    is_accelerate = true;
+                    DELAY2/=10.0;
+                    timer_label.setForeground(Color.RED);
                 }
+                   
+                
+                    
+
+                if(time != 0) return;
+     
+                timer1.stop();
+                timer2.stop();
+                timer3.stop();
+                repaint();
+
+                if(!bestScores.contains(score)){
+                    bestScores.add(score);
+                    Collections.sort(bestScores, Collections.reverseOrder());
+                }
+                
+
+                restartButton.setVisible(true);
+                
             }
         });
 
@@ -243,10 +290,10 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
             mice.offer(mouse);
         }
 
-        is_do = random.nextInt(5);
+        is_do = random.nextInt(10);
         if(is_do == 1){
             Mouse mouse = new Mouse(mouse_img2, getWidth()-(250*height)/1080, y_position[random.nextInt(y_position.length)], height/3+(150*height)/1080);
-            mouse.setSpeed(50);
+            mouse.setSpeed(60);
             mice2.offer(mouse);
         }
 
@@ -285,15 +332,15 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
             }
             if (mouse.X < -height/4) {
                 ++poll_count;
-                // System.out.println(mouse.X+ " < "+ -height/4);
             }
         }
         while(poll_count != 0){
             mice2.pollFirst();
             --mice_chcekNum2;
             --poll_count;
-            score = score-3 > 0 ? score-3 : 0;
+            score = score-7 > 0 ? score-7 : 0;
         }
+         
        
         repaint();
     }
@@ -303,6 +350,25 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
     public void actionPerformed(ActionEvent e){
         if(e.getSource() == exitButton){
             System.exit(0);
+        }
+        else if(e.getSource() == restartButton){
+            mice.clear();
+            mice2.clear();
+            mice_chcekNum = mice_chcekNum2 = 0;
+            time = 30;
+            score = 0;
+
+            timer1.start();
+            timer2.start();
+            timer3.start();
+
+            restartButton.setVisible(false);
+
+            timer_label.setForeground(Color.BLACK);
+            DELAY2*=10;
+            is_accelerate = false;
+
+            repaint();
         }
     }
 
@@ -333,23 +399,21 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
     public void keyReleased(KeyEvent e) {}
 
     private void checkMouseHit(int catIndex) {
-        // Mouse mouse = mice.peek();
-        // // System.out.println(mouse.X+" "+height/2);
-        // if (mouse != null && mouse.Y == y_position[catIndex] && mouse.X <= height/16) {
-        //     mice.poll();
-        // }
         Mouse mouse;
-        if(mice.size()!=0){
+        if(!mice.isEmpty()){
             mouse = mice.get(mice_chcekNum);
             if( mouse.canClick && mouse.Y == y_position[catIndex] && mouse.X <= height/16){
+                playBackgroundMusic("attachment/music/meow.wav");
                 mice.remove(mice_chcekNum);
                 score+=5;
+                
             }
         }
         
-        if(mice2.size()!=0){
+        if(!mice2.isEmpty()){
             mouse = mice2.get(mice_chcekNum2);
             if( mouse.canClick && mouse.Y == y_position[catIndex] && mouse.X <= height/16){
+                playBackgroundMusic("attachment/music/meow.wav");
                 mice2.remove(mice_chcekNum2);
                 score+=10;
             }
@@ -383,7 +447,46 @@ class GamePanel extends JPanel implements ActionListener, KeyListener{
         }
 
         score_label.setText("Score: "+score);
+
+        if(bestScores.isEmpty()) return;
+        g.setFont(new Font("Times New Roman", Font.PLAIN, 40));
+        g.setColor(Color.RED);
+        int y = 90;
+        g.drawString("TOP 5", width-180, 40);
+        for (int i = 0; i < bestScores.size() && i < 5; ++i) {
+            String rank;
+            switch (i) {
+                case 0:
+                    rank = "1st: ";
+                    break;
+                case 1:
+                    rank = "2nd: ";
+                    break;
+                case 2:
+                    rank = "3rd: ";
+                    break;
+            
+                default:
+                    rank = (i+1) + "th: ";
+                    g.setColor(Color.BLACK);
+                    break;
+            }
+            g.drawString(rank+String.valueOf(bestScores.get(i)), width-180, y);
+            y += 50; // 設定下一行的位置
+        }
     }
 
+    private void playBackgroundMusic(String filePath) {
+        try {
+            File audioFile = new File(filePath);
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+            clip = AudioSystem.getClip();
+            clip.open(audioStream);
+            clip.loop(0); // 循环播放
+            clip.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
     
 }
